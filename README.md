@@ -187,7 +187,38 @@ Once all the datasets were ready, I created specific prompts to guide the GPT-4o
 
 ## Data Pipeline Automation
 
-Apache Airflow was set up to automate the workflow and I created a configuration file that connects Airflow with the Python scripts of this project. There were minor adjustments to these scripts to ensure they work smoothly within the Airflow environment. The first two tasks, data ingestion and clustering, were successfully implemented and both tasks now run efficiently and quickly in Airflow. While having significant progress, the monitoring and deployment aspects are still in development.
+Apache Airflow was set up to automate the workflow and I created a configuration file that connects Airflow with the Python scripts of this project. There were minor adjustments to these scripts to ensure they work smoothly within the Airflow environment. The first two tasks, data ingestion and clustering, were successfully implemented and both tasks now run efficiently and quickly in Airflow. 
+
+A key component of this setup involved creating a configuration file named read_scripts.py, which was placed in the dags folder of the Airflow environment. This file creates the connection between Airflow and the project's Python scripts by specifying their paths. The three scripts are in use named DataIngestion.py, Clustering.py, and analyzeaudiencesllm_openai.py. Each of these scripts corresponds to a distinct task in the Airflow DAG. 
+
+
+ ![](Images/script-reader.png)
+
+
+
+The tasks mentioned above runs sequentially. The output from the DataIngestion.py task is used as input for the Clustering.py task, and similarly, the analyzeaudiencesllm_openai.py task relies on the output of the Clustering.py task. This setup ensures that the tasks are executed in a specified order, maintaining the integrity of the workflow. Despite the successful implementation of the first two tasks, there was an issue with the third task, which continuously ran without stopping. This problem was potentially linked to the use of an external engine with an API key or issues with integrating the script into Airflow. The third task involves analyzing customer segments using gpt-4o-mini, where each segment sometimes exceeds the engine's token limit due to the large number of customers. I implemented a solution to handle the data and address this issue. The solution involves automating the process of splitting customer segments. Segments with more than 1250 observations are divided into smaller dataframes to fit within the LLM’s maximum token limits. This automation was achieved through loops and conditions that dynamically split the data as needed. Even  with the automated third task, there is still an issue with third script, as it continues to run without stopping. This indicates that further analysis and improvements are necessary to fully resolve the problem for the execution of the task within Airflow.
+
+
+ ![](Images/event-log.png)
+
+
+
+
+ ![](Images/details.png)
+
+
+
+For the scheduling of the project, the workflow can be set to run at specified intervals, such as before each campaign period, to create new strategies targeting segment audiences. The scheduling can be divided into two modes: one that includes clustering using the elbow method and one that does not. In the standard run, we can exclude the elbow method, which determines the optimal number of clusters by evaluating between 1 to 10 clusters. This mode is ideal when the existing customer base remains stable, and there is no need to change the clustering. However, if we detect a significant increase in the number of customers, the clustering process using the elbow method can be scheduled to run again. This would help adjusting the number of clusters for the new data.
+ 
+ Airflow is a user-friendly platform, making monitoring the workflow straightforward and simple. We can easily observe task logs, allowing us to detect bugs and their locations within the scripts. The visual representation of the workflow as blocks helps to monitor task execution status in real-time. The color-coding of each status, such as green for success, red for failure, helps tracking progress and quickly identify any issues.
+
+ ![](Images/task-visualization.png)
+
+
+ ![](Images/logs.png)
+
+
+
 
 ## Assumptions and Challenges
 
