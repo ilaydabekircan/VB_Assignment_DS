@@ -223,7 +223,7 @@ For the scheduling of the project, the workflow can be set to run at specified i
 ## Assumptions and Challenges
 
 **Assumptions**
-- I didn't use dome datasets initially given to me because they either didn't seem relevant to customer segmentation or had inconsistencies that were difficult to resolve. In a real-world scenario, these decisions should be discussed with stakeholders to ensure that all relevant data is considered and the approach aligns with project goals.
+- I didn't use some datasets initially given to me because they either didn't seem relevant to customer segmentation or had inconsistencies that were difficult to resolve. In a real-world scenario, these decisions should be discussed with stakeholders to ensure that all relevant data is considered and the approach aligns with project goals.
 
 **Challenges**
 - During the integration process, some datasets, including the BehavioralData dataset, presented challenges in aligning with other data due to differences in key identifiers (such as CustomerID and ProductID). I created a Google Sheets document to catalog columns in each dataset and highlight key identifiers, which improved understanding and tracking of the datasets. This approach helped in identifying potential ways to better integrate the datasets and explore alternative uses or adjustments if necessary.
