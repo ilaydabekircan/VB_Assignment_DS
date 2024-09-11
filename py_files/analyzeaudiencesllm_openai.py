@@ -9,7 +9,7 @@ Original file is located at
 # Audience Creation Using LLMs
 """
 
-# pip install openai==0.28
+pip install openai==0.28
 
 # import necessary libraries
 import pandas as pd
@@ -21,15 +21,7 @@ openai.api_key = "***"
 """## Preprocessing before using LLMs"""
 
 # import clean dataframe with customer information
-path = '/Users/ilaydabekircan/Documents/Vision_Bridge/DS_Assignment/py_files'
-
-csv_files = [file for file in os.listdir(path) if file.startswith('df_segment')]
-
-for file in csv_files:
-    df_name = file.split('.')[0]
-    globals()[df_name] = pd.read_csv(os.path.join(path, file))
-
-
+df_segment = pd.read_csv('/content/df_segment.csv')
 df_segment.head(3)
 
 df_segment.info()
@@ -344,107 +336,89 @@ purchase_percentage_str = purchase_percentage.to_csv(index = False)
 
 """Although LLMs can analyze the dataset as a whole, when we put this df we exceed the max_token limit. Therefore, we will split the dataframe into three to store the information for each segment separately."""
 
-segments = df_segment['Segment'].unique()
+unique_segments = df_segment['Segment'].unique()
 
-# hold dfs for each segment
-segmented_dfs = {}
+# create a function to split segments larger than 1250 rows
+def split_large_segment(df, threshold=1250):
+    if len(df) > threshold:
+        df_split_1 = df.sample(frac=0.5, random_state=42)  # first half
+        df_split_2 = df.drop(df_split_1.index)             # remaining half
+        return [df_split_1, df_split_2]
+    else:
+        return [df]
 
-# create df for each segment
-for segment in segments:
-    segmented_dfs[segment] = df_segment[df_segment['Segment'] == segment]
+df_dict = {}
 
-# name the segments with their segment numbers and transform into csv
-for i in range(1, len(segments)+1):
-  globals()[f'df{i}'] = segmented_dfs[i]
-  globals()[f'df{i}_str'] = segmented_dfs[i].to_csv(index=False)
+# loop through each unique segment, filter, and split if necessary
+for segment in unique_segments:
+    segment_df = df_segment[df_segment['Segment'] == segment]
 
-df1_str
+    segment_splits = split_large_segment(segment_df)
 
-prompt_df1 = f"""
-Analyze the following customer data for Segment 1. Categorize customers into distinct audience segments based on behavior, preferences, and demographics.
-For this segment, provide a brief description of key characteristics and suggest targeted marketing strategies to enhance engagement and sales.
+    # if there's only one split, name it as df{segment}
+    if len(segment_splits) == 1:
+        df_name = f'df{segment}'
+        df_dict[df_name] = segment_splits[0]
+    else:
+        # if there are multiple splits, name them as df{segment}_v1, df{segment}_v2, etc.
+        for idx, split_df in enumerate(segment_splits, 1):
+            df_name = f'df{segment}_v{idx}'
+            df_dict[df_name] = split_df
 
-Data:
-{df1_str}
-"""
+for df_name, df in df_dict.items():
+    df = pd.DataFrame(df)
 
-prompt_df3 = f"""
-Analyze the following customer data for Segment 3. Categorize customers into distinct audience segments based on behavior, preferences, and demographics.
-For this segment, provide a brief description of key characteristics and suggest targeted marketing strategies to enhance engagement and sales.
+for df_name in df_dict.keys():
+    df = df_dict[df_name]
+    csv_str = df.to_csv(index=False)
+    globals()[f'{df_name}_str'] = csv_str
 
-Data:
-{df3_str}
-"""
+# segments = df_segment['Segment'].unique()
 
-response_df1 = openai.ChatCompletion.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": prompt_df1}
-    ],
-    max_tokens = 750,
-    temperature = 0.7
-)
+# # hold dfs for each segment
+# segmented_dfs = {}
 
-print("Analysis for Segment 1:")
-print(response_df1.choices[0].message['content'].strip())
+# # create df for each segment
+# for segment in segments:
+#     segmented_dfs[segment] = df_segment[df_segment['Segment'] == segment]
 
-response_df3 = openai.ChatCompletion.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": prompt_df3}
-    ],
-    max_tokens = 750,
-    temperature = 0.7
-)
+# # name the segments with their segment numbers and transform into csv
+# for i in range(1, len(segments)+1):
+#   globals()[f'df{i}'] = segmented_dfs[i]
+#   globals()[f'df{i}_str'] = segmented_dfs[i].to_csv(index=False)
 
-print("Analysis for Segment 3:")
-print(response_df3.choices[0].message['content'].strip())
+prompts = {}
 
-"""Since the second segment has more customer comparing to others, it can't be fit in the model without splitting. Therefore, we randomly split df2 and read the outputs separately."""
+for df_name in df_dict.keys():
+    # change the prompt in each step with the corresponding df
+    prompt = f"""
+    Analyze the following customer data for {df_name}. Categorize customers into distinct audience segments based on behavior, preferences, and demographics.
+    For this segment, provide a brief description of key characteristics and suggest targeted marketing strategies to enhance engagement and sales.
 
-df2_v1 = df2.sample(frac = 0.5,
-                    random_state = 42)
-df2_v2 = df2.drop(df2_v1.index)
+    Data:
+    {globals().get(f'{df_name}_str', '')}
+    """
 
-prompt_df2_v1 = f"""
-Analyze the following customer data for Segment 2. Categorize customers into distinct audience segments based on behavior, preferences, and demographics.
-For this segment, provide a brief description of key characteristics and suggest targeted marketing strategies to enhance engagement and sales.
+    prompts[df_name] = prompt
 
-Data:
-{df2_v1}
-"""
+responses = {}
 
-prompt_df2_v2 = f"""
-Analyze the following customer data for Segment 2. Categorize customers into distinct audience segments based on behavior, preferences, and demographics.
-For this segment, provide a brief description of key characteristics and suggest targeted marketing strategies to enhance engagement and sales.
+for df_name, prompt in prompts.items():
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens = 750,
+        temperature = 0.7
+    )
 
-Data:
-{df2_v2}
-"""
+    responses[df_name] = response.choices[0].message['content']
 
-response_df2 = openai.ChatCompletion.create(
-    model = "gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": prompt_df2_v1}
-    ],
-    max_tokens = 750,
-    temperature = 0.7
-)
-
-print("Analysis for Segment 2 Version 1:")
-print(response_df2.choices[0].message['content'].strip())
-
-response_df2 = openai.ChatCompletion.create(
-    model = "gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": prompt_df2_v2}
-    ],
-    max_tokens = 750,
-    temperature = 0.7
-)
-
-print("Analysis for Segment 2:")
-print(response_df2.choices[0].message['content'].strip())
+for name, response in responses.items():
+    print(f'Response for {name}:')
+    print(response)
+    print('---')
 
 """### The effectiveness of using LLMs for this purpose
 
